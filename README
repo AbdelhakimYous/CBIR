@@ -1,0 +1,11 @@
+Env\Scripts\activate
+
+cd projet2  
+
+streamlit run app2.py
+Pour le projet 2
+
+ou
+streamlit run ap.py
+
+Pour le projet 1
