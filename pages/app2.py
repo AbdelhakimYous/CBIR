@@ -9,6 +9,25 @@ from BiT import bio_taxo
 from scipy.spatial import distance
 import streamlit as st
 
+def extraction_signatures(chemin_dossier, descripteur):
+    #print(chemin_dossier)
+    liste_carac=[]
+    for root,dirs,files in os.walk(chemin_dossier):
+        for file in files:
+            if file.lower().endswith(('.png','.jpg','.jpeg','.bmp')):
+                path_relative=os.path.relpath(os.path.join(root,file))
+                #print(f'Relative : {path_relative}')
+                path=os.path.join(root,file)
+                #print(f'Path : {path}')
+                caracteristique=descripteur(path)
+                print(f'{caracteristique}')
+                class_name=os.path.dirname(path_relative)
+                #print(f'{class_name}')
+                liste_carac.append(caracteristique+[class_name,path_relative])
+    Sigantures=np.array(liste_carac)
+    np.save(f'Signatures_{descripteur.__name__}.npy', Sigantures)
+    print('fini')
+    #_{descripteur.__name__} je fais ca pour eviter que ca me leve une erreur de nom pas valide
 
 def manhattan(v1, v2):
     v1 = np.array(v1).astype('float')
@@ -93,6 +112,24 @@ chemin_img = 'animalsCbir/turtle/0a47b7d021.jpg'
 #if img is not None:
  #   img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
   #  st.image(img_rgb, caption=f"Image : {chemin_img}", use_column_width=True)
+choixDistance = st.selectbox(
+    'Sélectionner le type de distance',
+    ('euclidienne', 'manhattan', 'chebyshev')
+)
+choixDescripteur = st.selectbox(
+    'Sélectionner le type de descripteur',
+    ('GLCM', 'haralick', 'BiT', 'concat')
+)
+if st.button("Extraire les signatures"):
+    if(choixDescripteur == 'GLCM'):
+        extraction_signatures('animalsCbir', glcm)
+    elif(choixDescripteur == 'haralick'):
+        extraction_signatures('animalsCbir', haralick_feat)
+    elif(choixDescripteur == 'BiT'):
+        extraction_signatures('animalsCbir', bitdesk_feat)
+    else:
+        extraction_signatures('animalsCbir', concat)
+
 imageUpload = st.file_uploader('Insérer une image', type=['png', 'jpg', 'jpeg'])
 
 if imageUpload is not None:
@@ -105,15 +142,27 @@ if imageUpload is not None:
 
     #caracteristique_reqete = concat(imageNG)
     #ca ne marche car concat veut  un chemin
-    caracteristique_reqete = concat("imageUpload.png")
 
+    if(choixDescripteur == 'GLCM'):
+        caracteristique_reqete = glcm('imageUpload.png')
+        signatureGLCM = np.load('Signatures_glcm.npy', allow_pickle=True)
 
-    signatureGLCM = np.load('Signature.npy', allow_pickle=True)
+    elif(choixDescripteur == 'haralick'):
+        caracteristique_reqete = haralick_feat('imageUpload.png')
+        signatureGLCM = np.load('Signatures_haralick_feat.npy', allow_pickle=True)
+
+    elif(choixDescripteur == 'BiT'):
+        caracteristique_reqete = bitdesk_feat('imageUpload.png')
+        signatureGLCM = np.load('Signatures_bitdesk_feat.npy', allow_pickle=True)
+    else:
+        caracteristique_reqete = concat("imageUpload.png")
+        signatureGLCM = np.load('Signature.npy', allow_pickle=True)
+    print(choixDescripteur)
 
     resultat = Recherche_img(
     bdd_signature=signatureGLCM, 
     img_requete=caracteristique_reqete, 
-    distance='euclidienne', 
+    distance=choixDistance, 
     k=5
 )
 

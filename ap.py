@@ -5,6 +5,27 @@ import pickle
 import cv2
 import bcrypt
 import streamlit as st
+import os
+import time 
+from streamlit_extras.switch_page_button import switch_page
+
+
+def glcm(chemin):
+    data=cv2.imread(chemin,0)
+    co_matrice=graycomatrix(data,[1],[0],None,symmetric=False,normed=False)
+    contrast=float(graycoprops(co_matrice,'contrast')[0,0])
+    dissimilarity=float(graycoprops(co_matrice,'dissimilarity')[0,0])
+    correlation=float(graycoprops(co_matrice,'correlation')[0,0])
+    homogeneity=float(graycoprops(co_matrice,'homogeneity')[0,0])
+    ASM=float(graycoprops(co_matrice,'ASM')[0,0])
+    energy=float(graycoprops(co_matrice,'energy')[0,0])
+    return [contrast,dissimilarity,correlation,homogeneity,ASM,energy]
+
+def euclidenne(v1,v2):
+    v1=np.array(v1).astype('float')
+    v2=np.array(v2).astype('float')
+    dist=np.sqrt(np.sum(v1-v2)**2)
+    return dist
 
 def db_connection():
     try:
@@ -16,7 +37,7 @@ def db_connection():
         )
         return conn
     except mysql.connector.Error as err:
-        print(f"Erreur lors de la connexion à la base de données : {err}")
+        print(f"Erreur de connexion bd : {err}")
         return None
 
 def charger_descripteurs():
@@ -40,7 +61,7 @@ def charger_descripteurs():
             conn.close()
             return descripteurs, noms
     except mysql.connector.Error as err:
-        print(f"Erreur lors du chargement des descripteurs : {err}")
+        print(f"Erreur des descripteurs : {err}")
         return [], []
 
 def inserer_utilisateur(nom_utilisateur, email, mot_de_passe, type_auth, descripteurs_faciaux):
@@ -59,7 +80,7 @@ def inserer_utilisateur(nom_utilisateur, email, mot_de_passe, type_auth, descrip
             cursor.close()
             conn.close()
     except mysql.connector.Error as err:
-        print(f"Erreur lors de l'ajout de l'utilisateur : {err}")
+        print(f" probleme ajout de l'utilisateur : {err}")
 
 def verification_utilisateurSelonMotDePasse(nom_utilisateur, mot_de_passe):
     try:
@@ -129,7 +150,7 @@ else:
 st.title("Reconnaissance Faciale et Gestion Utilisateur")
 
 st.subheader("Inscription Utilisateur")
-nom_utilisateur = st.text_input("Nom d'utilisateur")
+nom = st.text_input("Nom d'utilisateur")
 email = st.text_input("Email")
 mot_de_passe = st.text_input("Mot de passe", type="password")
 type_auth = st.selectbox("Type d'authentification", ["Mot de passe", "Facial"])
@@ -141,31 +162,25 @@ if st.button("S'inscrire"):
         st.write("Veuillez vous positionner devant la caméra...")
         img_placeholder = st.empty()
         
-        ret, frame = capture.read()
-        if ret:
-            img_placeholder.image(frame, channels="BGR")
-            
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            face_locations = face_recognition.face_locations(rgb_frame)
-            
-            if face_locations:
-                face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
-                if face_encodings:
-                    descripteurs_faciaux = face_encodings[0]
-                    st.success("Visage capturé avec succès!")
-                    
-                    inserer_utilisateur(nom_utilisateur, email, hashed_password, type_auth, descripteurs_faciaux)
-                    st.success("Inscription avec succès ")
-                else:
-                    st.error("Impossible d'extraire les caractéristiques faciales. Veuillez réessayer.")
+        reponse,image=capture.read()
+        if reponse:
+            img_reduit=cv2.resize(image,(0,0),None,0.25,0.25)
+        
+            image_reduit=cv2.cvtColor(img_reduit,cv2.COLOR_BGR2RGB)            
+            encodage=face_recognition.face_encodings(image_reduit)[0]
+            encodage=encodage.tolist()
+            #ici jai enleve +[nom] car ca ma cree des probleme avec npy liste de plus de 128 valeurs 
+            #donc ca ma cree des probleme au niveau de la comparaison donc je l<ai enleve
+            if encodage:
+                st.success("Visage reconnu")                    
+                inserer_utilisateur(nom, email, hashed_password, type_auth, encodage)
+                st.success("Inscription avec succès ")
             else:
-                st.error("Aucun visage détecté. Veuillez vous rapprocher de la caméra et réessayer.")
+                st.error("Impossible extraire les caractéristiques")
         else:
-            st.error("Erreur d'accès à la caméra.")
+                st.error("Aucun visage détecté.")
     else:
-        descripteurs_faciaux = [] 
-        inserer_utilisateur(nom_utilisateur, email, hashed_password, type_auth, descripteurs_faciaux)
-        st.success("Utilisateur inscrit avec succès")
+            st.error("Erreur d'accès à la caméra.")
 
 st.subheader("Connexion Utilisateur")
 nom_utilisateur_connexion = st.text_input("Nom d'utilisateur (Connexion)")
@@ -207,28 +222,31 @@ if auth_mode == "Reconnaissance faciale":
 
             if carac_face:
                 for encodage, loc in zip(carac_face, emplacement_face):
-                    distFace = face_recognition.face_distance(descripteurs_utilisateur, encodage)
+                    match=face_recognition.compare_faces(descripteurs_utilisateur,encodage)
+                    distFace=face_recognition.face_distance(descripteurs_utilisateur,encodage)
+                    minDist=np.argmin(distFace)
+                    y1,x2,y2,x1=loc
+                    y1,x2,y2,x1=4*y1,4*x2,4*y2,4*x1
+                    dist = euclidenne(descripteurs_utilisateur[0], encodage)
 
-                    if distFace[0] < 0.6: 
-                        y1, x2, y2, x1 = loc
-                        y1, x2, y2, x1 = 4 * y1, 4 * x2, 4 * y2, 4 * x1
-
-                        cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                        cv2.putText(image, nom_utilisateur_connexion, (x1, y2 + 25), 
-                                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-                        st.success(f"Reconnaissance réussie pour {nom_utilisateur_connexion}")
-                        #st.session_state.page = 'app2'  # Mettre à jour la session
-                        #st.switch_page("app2")
-                        #ne maarche car bug
+                    if match[minDist]==True and dist < 0.6:
+                        cv2.rectangle(image,(x1,y1),(x2,y2),(0,255,0),2)
+                        nom=noms[minDist]
+                        cv2.putText(image,nom_utilisateur_connexion,(x1,y2+25),cv2.FONT_HERSHEY_COMPLEX,1,(255,255,255),2)
+                        st.image(image, channels="BGR")
+    
+                        time.sleep(4)
+                        st.markdown("""
+                            <meta http-equiv="refresh" content="0; url=/app2" />
+                            """, unsafe_allow_html=True) 
                     else:
-                        y1, x2, y2, x1 = loc
-                        y1, x2, y2, x1 = 4 * y1, 4 * x2, 4 * y2, 4 * x1
-                        cv2.rectangle(image, (x1, y1), (x2, y2), (0, 0, 255), 2)
-                        cv2.putText(image, 'Inconnu', (x1, y2 + 25), 
-                                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-                        st.warning("Visage inconnu")
-            
-            st.image(image, channels="BGR")
+                        cv2.rectangle(image,(x1,y1),(x2,y2),(0,255,0),2)
+                        nom='Inconnue'
+                        cv2.putText(image,nom,(x1,y2+25),cv2.FONT_HERSHEY_COMPLEX,1,(255,255,255),2) 
+                        st.image(image, channels="BGR")
+                        st.text("Visage non reconnu")
+
+                           
+                              
         else:
             st.error("Erreur.")
-
