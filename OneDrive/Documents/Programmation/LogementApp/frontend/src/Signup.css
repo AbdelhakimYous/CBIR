@@ -1,0 +1,102 @@
+/* Signup.css */
+
+/* Reset simple */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.signup-wrapper {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+  background: linear-gradient(135deg, #f0f0f0, #dcdcdc);
+}
+
+.form-container {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  padding: 3rem;
+  background: #fff;
+  border-radius: 2rem;
+  box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+}
+
+.form-container::before {
+  content: '';
+  position: absolute;
+  top: -3px; left: -3px; right: -3px; bottom: -3px;
+  background: linear-gradient(90deg, #8e2de2, #4a00e0, #ff0080, #ff8c00);
+  border-radius: 2rem;
+  z-index: -1;
+}
+
+h2 {
+  text-align: center;
+  margin-bottom: 2rem;
+  color: #333;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+label {
+  margin-bottom: 0.5rem;
+  color: #555;
+  font-weight: 500;
+}
+
+input, select {
+  padding: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 1rem;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+input:focus, select:focus {
+  border-color: #8e2de2;
+  box-shadow: 0 0 10px rgba(142,45,226,0.3);
+  outline: none;
+}
+
+button {
+  padding: 1rem;
+  border: none;
+  border-radius: 1rem;
+  background: linear-gradient(90deg, #8e2de2, #ff0080);
+  color: white;
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 5px 15px rgba(255,0,128,0.4);
+}
+
+.login-link {
+  text-align: center;
+  margin-top: 1rem;
+  color: #555;
+}
+
+.login-link a {
+  color: #8e2de2;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.login-link a:hover {
+  text-decoration: underline;
+}
